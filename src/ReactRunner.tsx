@@ -2,12 +2,17 @@ import { useEffect, useState, createElement, type ComponentType, type ReactEleme
 
 type PropsMap = Record<string, unknown>;
 
-// 👉 Экспортируем единый тип формы модуля
+// 👉 Единый тип для подгружаемых модулей
 export type ReactModuleShape = {
   default?: ComponentType<PropsMap>;
   Preview?: ComponentType<PropsMap>;
   previewProps?: PropsMap;
   getPreviewProps?: () => PropsMap;
+};
+
+// 👉 Дополнительный тип для компонента с previewProps
+type PreviewableComponent = ComponentType<PropsMap> & {
+  previewProps?: PropsMap;
 };
 
 type Props = {
@@ -26,16 +31,15 @@ export default function ReactRunner({ moduleLoader }: Props) {
         const mod = await moduleLoader();
         if (cancelled) return;
 
-        const Comp = mod.Preview ?? mod.default;
+        const Comp = (mod.Preview ?? mod.default) as PreviewableComponent | undefined;
+
         if (!Comp) {
           setView(<div>В модуле нет React-компонента (нет export default / Preview).</div>);
           return;
         }
 
-        const props =
-          (typeof mod.getPreviewProps === "function" ? mod.getPreviewProps() : undefined) ??
-          mod.previewProps ??
-          {};
+        // подставляем previewProps, если они есть
+        const props = Comp.previewProps ?? {};
 
         setView(<div>{createElement(Comp, props)}</div>);
       } catch (err) {
