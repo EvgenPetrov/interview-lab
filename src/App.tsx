@@ -1,6 +1,8 @@
 import { Suspense, lazy, useMemo, useState, type ComponentType } from "react";
 import "./index.css";
 import Select from "./Select";
+import CodePane from "./CodePane";
+import JsRunner from "./JsRunner";
 
 // ----- Типы модулей -----
 type JsModule = {
@@ -11,15 +13,18 @@ type ReactCompModule = { default: ComponentType<unknown> };
 type TaskProps = { initial?: number };
 type ReactCompModuleWithInitial = { default: ComponentType<TaskProps> };
 
-// ----- Сбор модулей -----
+// ----- Динамические модули (исполнение) -----
 const jsModules = import.meta.glob<JsModule>("./tasks/js/*.js");
 const jsxModules = import.meta.glob<ReactCompModule>("./tasks/jsx/*.jsx");
 const tsxModules = import.meta.glob<ReactCompModuleWithInitial>("./tasks/tsx/*.tsx");
 
-type Tab = "js" | "jsx" | "tsx";
-const fileLabel = (path: string) => path.split("/").pop() ?? path;
+// ----- Сырые исходники (для отображения) -----
+const jsSources = import.meta.glob<string>("./tasks/js/*.js", { as: "raw" });
+const jsxSources = import.meta.glob<string>("./tasks/jsx/*.jsx", { as: "raw" });
+const tsxSources = import.meta.glob<string>("./tasks/tsx/*.tsx", { as: "raw" });
 
-import JsRunner from "./JsRunner";
+type Tab = "js" | "jsx" | "tsx";
+const fileLabel = (p: string) => p.split("/").pop() ?? p;
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("js");
@@ -77,14 +82,19 @@ export default function App() {
             </div>
 
             <div className="card mt-12">
-              {jsPick ? (
-                <JsRunner loader={jsModules[jsPick]!} />
-              ) : (
-                <em>
-                  Файлы не найдены в <code>src/tasks/js</code>
-                </em>
-              )}
+              {jsPick ? <JsRunner loader={jsModules[jsPick]!} /> : <em>Файлы не найдены</em>}
             </div>
+
+            {/* исходник */}
+            {jsPick && (
+              <div className="card mt-12">
+                <CodePane
+                  loader={jsSources[jsPick]!}
+                  language="javascript"
+                  title={fileLabel(jsPick)}
+                />
+              </div>
+            )}
           </>
         )}
 
@@ -108,11 +118,15 @@ export default function App() {
                   <JsxComp />
                 </Suspense>
               ) : (
-                <em>
-                  Нет компонентов в <code>src/tasks/jsx</code>
-                </em>
+                <em>Нет компонентов</em>
               )}
             </div>
+
+            {jsxPick && (
+              <div className="card mt-12">
+                <CodePane loader={jsxSources[jsxPick]!} language="jsx" title={fileLabel(jsxPick)} />
+              </div>
+            )}
           </>
         )}
 
@@ -136,11 +150,15 @@ export default function App() {
                   <TsxComp initial={5} />
                 </Suspense>
               ) : (
-                <em>
-                  Нет компонентов в <code>src/tasks/tsx</code>
-                </em>
+                <em>Нет компонентов</em>
               )}
             </div>
+
+            {tsxPick && (
+              <div className="card mt-12">
+                <CodePane loader={tsxSources[tsxPick]!} language="tsx" title={fileLabel(tsxPick)} />
+              </div>
+            )}
           </>
         )}
       </section>

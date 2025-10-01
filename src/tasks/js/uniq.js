@@ -3,5 +3,6 @@ export function uniq(arr) {
   return Array.from(new Set(arr));
 }
 
-// Пример:
-// uniq([1,1,2,3,3]) -> [1,2,3]
+let arr = [1, 1, 2, 3, 3];
+
+console.log(uniq(arr));
