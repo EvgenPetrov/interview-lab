@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState, type ComponentType } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType } from "react";
 import "./index.css";
 import Select from "./Select";
 import CodePane from "./CodePane";
@@ -23,19 +23,54 @@ const jsSources = import.meta.glob<string>("./tasks/js/*.js", { as: "raw" });
 const jsxSources = import.meta.glob<string>("./tasks/jsx/*.jsx", { as: "raw" });
 const tsxSources = import.meta.glob<string>("./tasks/tsx/*.tsx", { as: "raw" });
 
+// ————— липкое состояние —————
+function useStickyState<T>(key: string, initial: T) {
+  const [state, setState] = useState<T>(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as T) : initial;
+    } catch (err) {
+      console.warn(`sticky[${key}] read failed`, err);
+      return initial;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(state));
+    } catch (err) {
+      console.warn(`sticky[${key}] write failed`, err);
+    }
+  }, [key, state]);
+
+  return [state, setState] as const;
+}
+
 type Tab = "js" | "jsx" | "tsx";
 const fileLabel = (p: string) => p.split("/").pop() ?? p;
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("js");
-
+  // списки
   const jsList = useMemo(() => Object.keys(jsModules).sort(), []);
   const jsxList = useMemo(() => Object.keys(jsxModules).sort(), []);
   const tsxList = useMemo(() => Object.keys(tsxModules).sort(), []);
 
-  const [jsPick, setJsPick] = useState(() => jsList[0] ?? "");
-  const [jsxPick, setJsxPick] = useState(() => jsxList[0] ?? "");
-  const [tsxPick, setTsxPick] = useState(() => tsxList[0] ?? "");
+  // липкие значения
+  const [tab, setTab] = useStickyState<Tab>("lab.tab", "js");
+  const [jsPick, setJsPick] = useStickyState<string>("lab.pick.js", jsList[0] ?? "");
+  const [jsxPick, setJsxPick] = useStickyState<string>("lab.pick.jsx", jsxList[0] ?? "");
+  const [tsxPick, setTsxPick] = useStickyState<string>("lab.pick.tsx", tsxList[0] ?? "");
+
+  // если список файлов изменился (или пуст), подправляем выбранные
+  useEffect(() => {
+    if (jsPick && !jsList.includes(jsPick)) setJsPick(jsList[0] ?? "");
+  }, [jsList, jsPick, setJsPick]);
+  useEffect(() => {
+    if (jsxPick && !jsxList.includes(jsxPick)) setJsxPick(jsxList[0] ?? "");
+  }, [jsxList, jsxPick, setJsxPick]);
+  useEffect(() => {
+    if (tsxPick && !tsxList.includes(tsxPick)) setTsxPick(tsxList[0] ?? "");
+  }, [tsxList, tsxPick, setTsxPick]);
 
   const JsxComp = useMemo(
     () =>
@@ -50,10 +85,6 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="title">Interview Lab: JS / JSX / TSX</div>
-      </header>
-
       <div className="tabs">
         <button className={"tab " + (tab === "js" ? "active" : "")} onClick={() => setTab("js")}>
           JS
@@ -67,7 +98,6 @@ export default function App() {
       </div>
 
       <section className="panel">
-        {/* --- JS --- */}
         {tab === "js" && (
           <>
             <div className="controls">
@@ -80,12 +110,13 @@ export default function App() {
                 />
               </label>
             </div>
-
             <div className="card mt-12">
-              {jsPick ? <JsRunner loader={jsModules[jsPick]!} /> : <em>Файлы не найдены</em>}
+              {jsPick ? (
+                <JsRunner moduleLoader={jsModules[jsPick]!} rawLoader={jsSources[jsPick]!} />
+              ) : (
+                <em>Файлы не найдены</em>
+              )}
             </div>
-
-            {/* исходник */}
             {jsPick && (
               <div className="card mt-12">
                 <CodePane
@@ -98,7 +129,6 @@ export default function App() {
           </>
         )}
 
-        {/* --- JSX --- */}
         {tab === "jsx" && (
           <>
             <div className="controls">
@@ -111,7 +141,6 @@ export default function App() {
                 />
               </label>
             </div>
-
             <div className="card mt-12">
               {JsxComp ? (
                 <Suspense fallback={<span className="muted">Загрузка…</span>}>
@@ -121,7 +150,6 @@ export default function App() {
                 <em>Нет компонентов</em>
               )}
             </div>
-
             {jsxPick && (
               <div className="card mt-12">
                 <CodePane loader={jsxSources[jsxPick]!} language="jsx" title={fileLabel(jsxPick)} />
@@ -130,7 +158,6 @@ export default function App() {
           </>
         )}
 
-        {/* --- TSX --- */}
         {tab === "tsx" && (
           <>
             <div className="controls">
@@ -143,7 +170,6 @@ export default function App() {
                 />
               </label>
             </div>
-
             <div className="card mt-12">
               {TsxComp ? (
                 <Suspense fallback={<span className="muted">Загрузка…</span>}>
@@ -153,7 +179,6 @@ export default function App() {
                 <em>Нет компонентов</em>
               )}
             </div>
-
             {tsxPick && (
               <div className="card mt-12">
                 <CodePane loader={tsxSources[tsxPick]!} language="tsx" title={fileLabel(tsxPick)} />

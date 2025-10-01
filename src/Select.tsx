@@ -20,11 +20,10 @@ export default function Select({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Закрываем по клику вне
+ 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
-      if (!ref.current) return;
-      if (!ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -45,15 +44,28 @@ export default function Select({
       </button>
 
       {open && (
-        <ul className="select2-menu" role="listbox">
+        <ul
+          className="select2-menu"
+          role="listbox"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+          }}>
           {options.map((o) => (
             <li key={o.value} role="option" aria-selected={o.value === value}>
               <button
                 type="button"
                 className={`select2-option${o.value === value ? " selected" : ""}`}
-                onClick={() => {
+                
+                onPointerDown={(e) => {
+                  e.stopPropagation();
                   onChange(o.value);
                   setOpen(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    onChange(o.value);
+                    setOpen(false);
+                  }
                 }}>
                 {o.label}
               </button>
