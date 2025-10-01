@@ -1,24 +1,25 @@
-import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./index.css";
 import Select from "./Select";
 import CodePane from "./CodePane";
 import JsRunner from "./JsRunner";
+import ReactRunner, { type ReactModuleShape } from "./ReactRunner";
 
 // ----- Типы модулей -----
 type JsModule = {
   demo?: () => React.ReactNode | string | number;
   sum?: (a: number, b: number) => unknown;
 };
-type ReactCompModule = { default: ComponentType<unknown> };
-type TaskProps = { initial?: number };
-type ReactCompModuleWithInitial = { default: ComponentType<TaskProps> };
 
-// ----- Динамические модули (исполнение) -----
+// ----- Динамические модули -----
 const jsModules = import.meta.glob<JsModule>("./tasks/js/*.js");
-const jsxModules = import.meta.glob<ReactCompModule>("./tasks/jsx/*.jsx");
-const tsxModules = import.meta.glob<ReactCompModuleWithInitial>("./tasks/tsx/*.tsx");
 
-// ----- Сырые исходники (для отображения) -----
+// 👇 тут был свой ReactModule — удаляем его
+// и используем единый тип из ReactRunner
+const jsxModules = import.meta.glob<ReactModuleShape>("./tasks/jsx/*.jsx");
+const tsxModules = import.meta.glob<ReactModuleShape>("./tasks/tsx/*.tsx");
+
+// ----- Сырые исходники -----
 const jsSources = import.meta.glob<string>("./tasks/js/*.js", { as: "raw" });
 const jsxSources = import.meta.glob<string>("./tasks/jsx/*.jsx", { as: "raw" });
 const tsxSources = import.meta.glob<string>("./tasks/tsx/*.tsx", { as: "raw" });
@@ -71,17 +72,6 @@ export default function App() {
   useEffect(() => {
     if (tsxPick && !tsxList.includes(tsxPick)) setTsxPick(tsxList[0] ?? "");
   }, [tsxList, tsxPick, setTsxPick]);
-
-  const JsxComp = useMemo(
-    () =>
-      jsxPick ? lazy(() => jsxModules[jsxPick]!().then((m) => ({ default: m.default }))) : null,
-    [jsxPick]
-  );
-  const TsxComp = useMemo(
-    () =>
-      tsxPick ? lazy(() => tsxModules[tsxPick]!().then((m) => ({ default: m.default }))) : null,
-    [tsxPick]
-  );
 
   return (
     <div className="app">
@@ -141,15 +131,15 @@ export default function App() {
                 />
               </label>
             </div>
+
             <div className="card mt-12">
-              {JsxComp ? (
-                <Suspense fallback={<span className="muted">Загрузка…</span>}>
-                  <JsxComp />
-                </Suspense>
+              {jsxPick ? (
+                <ReactRunner moduleLoader={jsxModules[jsxPick]!} />
               ) : (
                 <em>Нет компонентов</em>
               )}
             </div>
+
             {jsxPick && (
               <div className="card mt-12">
                 <CodePane loader={jsxSources[jsxPick]!} language="jsx" title={fileLabel(jsxPick)} />
@@ -170,15 +160,15 @@ export default function App() {
                 />
               </label>
             </div>
+
             <div className="card mt-12">
-              {TsxComp ? (
-                <Suspense fallback={<span className="muted">Загрузка…</span>}>
-                  <TsxComp initial={5} />
-                </Suspense>
+              {tsxPick ? (
+                <ReactRunner moduleLoader={tsxModules[tsxPick]!} />
               ) : (
                 <em>Нет компонентов</em>
               )}
             </div>
+
             {tsxPick && (
               <div className="card mt-12">
                 <CodePane loader={tsxSources[tsxPick]!} language="tsx" title={fileLabel(tsxPick)} />
