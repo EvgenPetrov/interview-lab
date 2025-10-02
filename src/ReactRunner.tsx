@@ -10,7 +10,7 @@ export type ReactModuleShape = {
   getPreviewProps?: () => PropsMap;
 };
 
-// 👉 Дополнительный тип для компонента с previewProps
+// 👉 Дополнительный тип для компонента со статическим previewProps
 type PreviewableComponent = ComponentType<PropsMap> & {
   previewProps?: PropsMap;
 };
@@ -38,10 +38,14 @@ export default function ReactRunner({ moduleLoader }: Props) {
           return;
         }
 
-        // подставляем previewProps, если они есть
-        const props = Comp.previewProps ?? {};
+        // порядок источников: getPreviewProps() -> previewProps из модуля -> статические previewProps у компонента
+        const props =
+          (typeof mod.getPreviewProps === "function" ? mod.getPreviewProps() : undefined) ??
+          mod.previewProps ??
+          Comp.previewProps ??
+          {};
 
-        setView(<div>{createElement(Comp, props)}</div>);
+        setView(createElement(Comp, props));
       } catch (err) {
         console.error("ReactRunner: load failed", err);
         setView(<div>Ошибка загрузки React-компонента.</div>);
