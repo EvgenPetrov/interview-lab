@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import "./index.css";
-import Select from "./Select";
-import CodePane from "./CodePane";
-import JsRunner from "./JsRunner";
-import ReactRunner, { type ReactModuleShape } from "./ReactRunner";
+import "@styles/index.css";
+
+import { Select } from "@components/Select";
+import { CodePane } from "@components/CodePane";
+import ReactRunner, { type ReactModuleShape } from "@runners/ReactRunner";
+import JsRunner from "@runners/JsRunner";
 
 // ----- Типы модулей -----
 type JsModule = {
@@ -11,18 +12,15 @@ type JsModule = {
   sum?: (a: number, b: number) => unknown;
 };
 
-// ----- Динамические модули -----
-const jsModules = import.meta.glob<JsModule>("./tasks/js/*.js");
-
-// 👇 тут был свой ReactModule — удаляем его
-// и используем единый тип из ReactRunner
-const jsxModules = import.meta.glob<ReactModuleShape>("./tasks/jsx/*.jsx");
-const tsxModules = import.meta.glob<ReactModuleShape>("./tasks/tsx/*.tsx");
+// ----- Динамические модули (пути из app → ../tasks) -----
+const jsModules = import.meta.glob<JsModule>("./../tasks/js/*.js");
+const jsxModules = import.meta.glob<ReactModuleShape>("./../tasks/jsx/*.jsx");
+const tsxModules = import.meta.glob<ReactModuleShape>("./../tasks/tsx/*.tsx");
 
 // ----- Сырые исходники -----
-const jsSources = import.meta.glob<string>("./tasks/js/*.js", { as: "raw" });
-const jsxSources = import.meta.glob<string>("./tasks/jsx/*.jsx", { as: "raw" });
-const tsxSources = import.meta.glob<string>("./tasks/tsx/*.tsx", { as: "raw" });
+const jsSources = import.meta.glob<string>("./../tasks/js/*.js", { as: "raw" });
+const jsxSources = import.meta.glob<string>("./../tasks/jsx/*.jsx", { as: "raw" });
+const tsxSources = import.meta.glob<string>("./../tasks/tsx/*.tsx", { as: "raw" });
 
 // ————— липкое состояние —————
 function useStickyState<T>(key: string, initial: T) {
@@ -30,8 +28,7 @@ function useStickyState<T>(key: string, initial: T) {
     try {
       const raw = localStorage.getItem(key);
       return raw ? (JSON.parse(raw) as T) : initial;
-    } catch (err) {
-      console.warn(`sticky[${key}] read failed`, err);
+    } catch {
       return initial;
     }
   });
@@ -39,9 +36,7 @@ function useStickyState<T>(key: string, initial: T) {
   useEffect(() => {
     try {
       localStorage.setItem(key, JSON.stringify(state));
-    } catch (err) {
-      console.warn(`sticky[${key}] write failed`, err);
-    }
+    } catch {}
   }, [key, state]);
 
   return [state, setState] as const;
@@ -49,6 +44,8 @@ function useStickyState<T>(key: string, initial: T) {
 
 type Tab = "js" | "jsx" | "tsx";
 const fileLabel = (p: string) => p.split("/").pop() ?? p;
+const has = <T,>(map: Record<string, T>, key: string): key is keyof typeof map =>
+  !!key && Object.prototype.hasOwnProperty.call(map, key);
 
 export default function App() {
   // списки
@@ -62,15 +59,15 @@ export default function App() {
   const [jsxPick, setJsxPick] = useStickyState<string>("lab.pick.jsx", jsxList[0] ?? "");
   const [tsxPick, setTsxPick] = useStickyState<string>("lab.pick.tsx", tsxList[0] ?? "");
 
-  // если список файлов изменился (или пуст), подправляем выбранные
+  // если список файлов изменился (или есть старые значения из localStorage) — подправляем выбор
   useEffect(() => {
-    if (jsPick && !jsList.includes(jsPick)) setJsPick(jsList[0] ?? "");
+    if (!has(jsModules, jsPick)) setJsPick(jsList[0] ?? "");
   }, [jsList, jsPick, setJsPick]);
   useEffect(() => {
-    if (jsxPick && !jsxList.includes(jsxPick)) setJsxPick(jsxList[0] ?? "");
+    if (!has(jsxModules, jsxPick)) setJsxPick(jsxList[0] ?? "");
   }, [jsxList, jsxPick, setJsxPick]);
   useEffect(() => {
-    if (tsxPick && !tsxList.includes(tsxPick)) setTsxPick(tsxList[0] ?? "");
+    if (!has(tsxModules, tsxPick)) setTsxPick(tsxList[0] ?? "");
   }, [tsxList, tsxPick, setTsxPick]);
 
   return (
@@ -100,14 +97,16 @@ export default function App() {
                 />
               </label>
             </div>
+
             <div className="card mt-12">
-              {jsPick ? (
+              {has(jsModules, jsPick) && has(jsSources, jsPick) ? (
                 <JsRunner moduleLoader={jsModules[jsPick]!} rawLoader={jsSources[jsPick]!} />
               ) : (
                 <em>Файлы не найдены</em>
               )}
             </div>
-            {jsPick && (
+
+            {has(jsSources, jsPick) && (
               <div className="card mt-12">
                 <CodePane
                   loader={jsSources[jsPick]!}
@@ -133,14 +132,14 @@ export default function App() {
             </div>
 
             <div className="card mt-12">
-              {jsxPick ? (
+              {has(jsxModules, jsxPick) ? (
                 <ReactRunner moduleLoader={jsxModules[jsxPick]!} />
               ) : (
                 <em>Нет компонентов</em>
               )}
             </div>
 
-            {jsxPick && (
+            {has(jsxSources, jsxPick) && (
               <div className="card mt-12">
                 <CodePane loader={jsxSources[jsxPick]!} language="jsx" title={fileLabel(jsxPick)} />
               </div>
@@ -162,14 +161,14 @@ export default function App() {
             </div>
 
             <div className="card mt-12">
-              {tsxPick ? (
+              {has(tsxModules, tsxPick) ? (
                 <ReactRunner moduleLoader={tsxModules[tsxPick]!} />
               ) : (
                 <em>Нет компонентов</em>
               )}
             </div>
 
-            {tsxPick && (
+            {has(tsxSources, tsxPick) && (
               <div className="card mt-12">
                 <CodePane loader={tsxSources[tsxPick]!} language="tsx" title={fileLabel(tsxPick)} />
               </div>

@@ -16,13 +16,24 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
+    /* ЛИНТИНГ */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+
+    "baseUrl": "src",
+    "paths": {
+      "@/*": ["*"],
+      "@components/*": ["components/*"],
+      "@runners/*": ["runners/*"],
+      "@styles/*": ["styles/*"],
+      "@tasks/*": ["tasks/*"],
+      "@assets/*": ["assets/*"],
+      "@app/*": ["app/*"]
+    }
   },
   "include": ["src"]
 }

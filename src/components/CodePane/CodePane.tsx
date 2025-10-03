@@ -1,13 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import Prism from "prismjs";
-
-// Языки
 import "prismjs/components/prism-javascript";
 import "prismjs/components/prism-jsx";
 import "prismjs/components/prism-typescript";
 import "prismjs/components/prism-tsx";
-
-// Тема и номера строк (официальный плагин)
 import "prismjs/themes/prism-okaidia.css";
 import "prismjs/plugins/line-numbers/prism-line-numbers";
 import "prismjs/plugins/line-numbers/prism-line-numbers.css";
